@@ -41,13 +41,12 @@ def listen():
                 message = socks.recv(2048)
                 dmessage = message[1:].decode()
             else:
-                message = sys.stdin.readline()
+                message = 'confirm'.encode()
                 try:
                     server.send(message)
                     sys.stdout.flush()
                 except Exception as e:
                     print(e)
-    server.close()
 
 
 def send():
@@ -90,7 +89,7 @@ def send():
 
         # creates and individual thread for every user
         # that connects
-        start_new_thread(clientthread, (conn, addr))
+        start_new_thread(listen, (conn, addr))
 
         conn.close()
         server.close()

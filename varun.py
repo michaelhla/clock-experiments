@@ -24,7 +24,7 @@ def consumer(conn):
 
 # sema acquire try: s.connect((host,port)) print("Client-side connection success to port val:" + str(portVal) + "\n")
 def producer(portVal):
-    host = "127.0.0.1"
+    host = "10.250.189.78"
     port = int(portVal)
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     sleepVal = 0.500
@@ -56,9 +56,10 @@ def machine(config):
     global code
     while True:
         code = random.randint(1, 3)
+        print(code, os.getpid())
 
 
-localHost = "127.0.0.1"
+localHost = "10.250.189.78"
 
 
 if __name__ == '__main__':

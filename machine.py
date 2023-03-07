@@ -3,6 +3,13 @@ import select
 import sys
 import threading
 from _thread import *
+import random
+import time
+
+msg_q = []
+qlock = threading.Lock()
+gconn_list = []
+connlock = threading.Lock()
 
 
 def serverthread(IP, port):
@@ -13,59 +20,83 @@ def serverthread(IP, port):
     while True:
         conn, addr = server.accept()
         print(addr[0] + " connected")
-        # creates and individual thread for each machine that connects
-        start_new_thread(msg_listen, (conn, addr))
+        # creates an individual thread for each machine that connects
+        start_new_thread(msg_listen, (conn))
 
 
-def msg_listen(conn, addr):
+def msg_listen(conn, IP=None, port=None):
     # this is where a machine will listen when it recognizes a connection
+    # either gets a conn from the server for listening or connects to existing server
+    if conn is None:
+        conn = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        conn.connect(IP, port)
+    connlock.acquire(timeout=10)
+    gconn_list.append(conn)
+    connlock.release()
     while True:
         try:
-            conn.recv(2048)
+            msg = conn.recv(2048)
+            if msg:
+                qlock.acquire(timeout=10)
+                msg_q.append(msg)
+                qlock.release()
+
         except Exception as e:
             print(e)
             continue
 
+# TODO, implement clocks, rates, effective sending with conns, log files
 
-def running_machine(IP, port):
-    server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    server.connect((IP, port))
+
+def running_machine(rate):
+    time.sleep(rate)
+    clock = [0, 0, 0]
     while True:
+        # check our message queue
+        qlock.acquire(timeout=10)
+        if len(msg_q) > 0:
+            msg = msg_q.pop()
+        else:
+            msg = None
+        qlock.release()
 
-        # maintains a list of possible input streams
-        sockets_list = [sys.stdin, server]
+        # check connlist for updates
+        connlock.acquire(timeout=10)
+        conn_list = gconn_list
+        connlock.release()
 
-        """ There are two possible input situations. Either the
-        user wants to give manual input to send to other people,
-        or the server is sending a message to be printed on the
-        screen. Select returns from sockets_list, the stream that
-        is reader for input. So for example, if the server wants
-        to send a message, then the if condition will hold true
-        below.If the user wants to send a message, the else
-        condition will evaluate as true"""
-
-        read_sockets, write_socket, error_socket = select.select(
-            sockets_list, [], [])
-        for socks in read_sockets:
-            if socks == server:
-                message = socks.recv(2048)
+        time.sleep(rate)
+        # act accordingly to the message
+        if msg:
+            clock = msg
+        else:
+            op = random.randint(1, 10)
+            if op == 1 or op == 2:
+                # NOT SURE if able to send message when separate thread connected
+                # TODO figure out how to send to certain connections
+                # maybe have to open connections in machine thread, then open listen threads with that connection passed in
+                conn_list[op].send(clock[0])
+            elif op == 3:
+                for conn in conn_list:
+                    conn.send(clock)
             else:
-                try:
-                    server.send()
-                    sys.stdout.flush()
-                except Exception as e:
-                    print(e)
+                clock[0] += 1
 
 
 if __name__ == '__main__':
     this_IP = '10.250.189.78'
-    client_list = []
-    # usage: python3 machine.py listenPORT targetIP targetPORT...
-    # connect to all existing machines
-    for i in range(3, sys.argv, 2):
-        client_list.append(threading.Thread(
-            target=clientthread, args=(sys.argv[i], sys.argv[i+1])))
-        client_list[i].start()
+    thread_list = []
+    # usage: python3 machine.py rate listenPORT targetIP targetPORT...
 
-    # then start its own connection listen thread
-    threading.Thread(target=serverthread, args=(this_IP, sys.argv[2]))
+    # connect to all existing machines
+    for i in range(4, sys.argv, 2):
+        thread_list.append(threading.Thread(
+            target=msg_listen, args=(None, sys.argv[i], sys.argv[i+1])))
+        thread_list[i].start()
+
+    # start machine thread
+    threading.Thread(target=running_machine,
+                     args=(this_IP, sys.argv[2])).start()
+
+    # then start its own thread to listen for future connections
+    threading.Thread(target=serverthread, args=(this_IP, sys.argv[3])).start()

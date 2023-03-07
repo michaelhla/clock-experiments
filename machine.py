@@ -51,7 +51,7 @@ def msg_listen(conn, IP=None, port=None):
 
 
 def running_machine(rate):
-    time.sleep(1/rate)
+    time.sleep(1/rate + 1)
     clock = [0, 0, 0]
     while True:
         # check our message queue
@@ -64,7 +64,7 @@ def running_machine(rate):
 
         # check connlist for updates
 
-        time.sleep(1/rate)
+        time.sleep(1/rate + 1)
         # act accordingly to the message
         if msg:
             clock = msg
@@ -76,7 +76,7 @@ def running_machine(rate):
                 # maybe have to open connections in machine thread, then open listen threads with that connection passed in
                 connlock.acquire(timeout=10)
                 if len(gconn_list) > 1:
-                    conn = gconn_list[op]
+                    conn = gconn_list[op-1]
                     conn.send((1).to_bytes(1, "big"))
                 connlock.release()
             elif op == 3:
@@ -86,7 +86,7 @@ def running_machine(rate):
                 connlock.release()
 
             else:
-                clock[0] += 1
+                print(clock)
 
 
 if __name__ == '__main__':
@@ -97,10 +97,12 @@ if __name__ == '__main__':
 
     # connect to all existing machines
     if len(sys.argv) > 3:
+        count = 0
         for i in range(3, len(sys.argv), 2):
             thread_list.append(threading.Thread(
                 target=msg_listen, args=(None, sys.argv[i], int(sys.argv[i+1]))))
-            thread_list[i-3].start()
+            thread_list[count].start()
+            count += 1
 
     # start machine thread
     threading.Thread(target=running_machine,

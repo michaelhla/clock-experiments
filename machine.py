@@ -41,7 +41,7 @@ def msg_listen(conn, IP=None, port=None):
             msg = conn.recv(2048)
             if msg:
                 qlock.acquire(timeout=10)
-                msg_q.append(msg.decode())
+                msg_q.append(msg)
                 qlock.release()
 
         except Exception as e:
@@ -67,8 +67,8 @@ def running_machine(rate):
         time.sleep(1/rate)
         # act accordingly to the message
         if msg:
-            sent = int(msg[0])
-            clock[sent] = int(msg[1:])
+            sent = msg[0]
+            clock[sent] = int(msg[1:].decode())
         else:
             op = random.randint(1, 10)
             if op == 1 or op == 2:
@@ -80,19 +80,20 @@ def running_machine(rate):
                 if len(gconn_list) > 1:
                     conn = gconn_list[op-1]
                     sender = machine_ID.to_bytes(1, "big")
-                    clock_val = clock[machine_ID].to_bytes(1, "big")
+                    clock_val = str(clock[machine_ID]).encode()
                     conn.send(sender + clock_val)
                 connlock.release()
             elif op == 3:
                 connlock.acquire(timeout=10)
                 for conn in gconn_list:
                     sender = machine_ID.to_bytes(1, "big")
-                    clock_val = clock[machine_ID].to_bytes(1, "big")
+                    clock_val = str(clock[machine_ID]).encode()
                     conn.send(sender + clock_val)
                 connlock.release()
 
             else:
                 clock[machine_ID] += 1
+            print(clock)
 
 
 if __name__ == '__main__':
@@ -120,3 +121,6 @@ if __name__ == '__main__':
     threading.Thread(target=serverthread, args=(
         this_IP, int(sys.argv[2]))).start()
     print("init complete")
+
+
+# python3 machine.py 10 8082 10.250.189.78 8080 10.250.189.78 8081 (last machine start with my IP)

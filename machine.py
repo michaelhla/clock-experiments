@@ -10,6 +10,7 @@ msg_q = []
 qlock = threading.Lock()
 gconn_list = []
 connlock = threading.Lock()
+machine_ID = -1
 
 
 def serverthread(IP, port):
@@ -40,7 +41,7 @@ def msg_listen(conn, IP=None, port=None):
             msg = conn.recv(2048)
             if msg:
                 qlock.acquire(timeout=10)
-                msg_q.append(msg)
+                msg_q.append(msg.decode())
                 qlock.release()
 
         except Exception as e:
@@ -51,9 +52,10 @@ def msg_listen(conn, IP=None, port=None):
 
 
 def running_machine(rate):
-    time.sleep(1/rate + 1)
     clock = [0, 0, 0]
     while True:
+        time.sleep(1/rate)
+
         # check our message queue
         qlock.acquire(timeout=10)
         if len(msg_q) > 0:
@@ -62,38 +64,43 @@ def running_machine(rate):
             msg = None
         qlock.release()
 
-        # check connlist for updates
-
-        time.sleep(1/rate + 1)
+        time.sleep(1/rate)
         # act accordingly to the message
         if msg:
-            clock = msg
+            sent = int(msg[0])
+            clock[sent] = int(msg[1:])
         else:
             op = random.randint(1, 10)
             if op == 1 or op == 2:
                 # NOT SURE if able to send message when separate thread connected
                 # TODO figure out how to send to certain connections
                 # maybe have to open connections in machine thread, then open listen threads with that connection passed in
+
                 connlock.acquire(timeout=10)
                 if len(gconn_list) > 1:
                     conn = gconn_list[op-1]
-                    conn.send((1).to_bytes(1, "big"))
+                    sender = machine_ID.to_bytes(1, "big")
+                    clock_val = clock[machine_ID].to_bytes(1, "big")
+                    conn.send(sender + clock_val)
                 connlock.release()
             elif op == 3:
                 connlock.acquire(timeout=10)
                 for conn in gconn_list:
-                    conn.send((1).to_bytes(1, "big"))
+                    sender = machine_ID.to_bytes(1, "big")
+                    clock_val = clock[machine_ID].to_bytes(1, "big")
+                    conn.send(sender + clock_val)
                 connlock.release()
 
             else:
-                print(clock)
+                clock[machine_ID] += 1
 
 
 if __name__ == '__main__':
     this_IP = '10.250.189.78'
     thread_list = []
-    # usage: python3 machine.py rate listenPORT targetIP targetPORT...
+    # usage: python3 machine.py machine_ID listenPORT targetIP targetPORT...
     # start machines in sequence
+    machine_ID = int(sys.argv[1])
 
     # connect to all existing machines
     if len(sys.argv) > 3:
@@ -105,8 +112,9 @@ if __name__ == '__main__':
             count += 1
 
     # start machine thread
+    rate = random.randint(1, 6)
     threading.Thread(target=running_machine,
-                     args=(int(sys.argv[1]),)).start()  # change rate as arg
+                     args=(rate,)).start()  # change rate as arg
 
     # then start its own thread to listen for future connections
     threading.Thread(target=serverthread, args=(

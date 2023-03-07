@@ -96,7 +96,7 @@ if __name__ == '__main__':
 
     # start machine thread
     threading.Thread(target=running_machine,
-                     args=(this_IP, sys.argv[2])).start()
+                     args=(10)).start()  # change rate as arg
 
     # then start its own thread to listen for future connections
     threading.Thread(target=serverthread, args=(this_IP, sys.argv[3])).start()

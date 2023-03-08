@@ -13,6 +13,7 @@ gconn_list = []
 connlock = threading.Lock()
 machine_ID = -1
 
+
 def serverthread(IP, port):
     server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -30,6 +31,7 @@ def msg_listen(conn, IP=None, port=None):
     # either gets a conn from machine server for listening or connects to existing server
     if conn is None:
         conn = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        print(IP, port)
         conn.connect((IP, port))
 
     connlock.acquire(timeout=10)
@@ -49,10 +51,9 @@ def msg_listen(conn, IP=None, port=None):
             continue
 
 
-
 def running_machine(rate):
     # logical clock starts at 0
-    clock = 0    
+    clock = 0
     # name log file, with ind enumerating the file
     name = "log_"+str(machine_ID)+".txt"
     with open(name, "w") as f:
@@ -81,48 +82,51 @@ def running_machine(rate):
         if msg:
             sender = msg[0]
             TS = int(msg[1:].decode())
-            #update logical clock
+            # update logical clock
             clock = max(TS, clock)
             clock += 1
-            #automatically opens and closes for file safety; in a mode to append instead of overwrite file
+            # automatically opens and closes for file safety; in a mode to append instead of overwrite file
             with open(name, "a") as f:
-                f.write("RecMsg,"+str(datetime.datetime.now())+","+str(q_len)+","+str(clock)+"\n")
+                f.write("RecMsg,"+str(datetime.datetime.now()) +
+                        ","+str(q_len)+","+str(clock)+"\n")
         else:
             # ensures run through all op codes
             op = random.randint(1, 10)
             if op == 1 or op == 2:
                 connlock.acquire(timeout=10)
                 if len(gconn_list) > 1:
-                    #sends message to desired connection
+                    # sends message to desired connection
                     conn = gconn_list[op-1]
                     sender = machine_ID.to_bytes(1, "big")
                     clock_val = str(clock).encode()
                     conn.sendall(sender + clock_val)
                 connlock.release()
-                clock+=1
+                clock += 1
                 with open(name, "a") as f:
-                    f.write("SentMsg,"+str(datetime.datetime.now())+","+str(clock)+"\n")
+                    f.write("SentMsg,"+str(datetime.datetime.now()) +
+                            ","+str(clock)+"\n")
             elif op == 3:
                 connlock.acquire(timeout=10)
-                #sends double message
+                # sends double message
                 for conn in gconn_list:
                     sender = machine_ID.to_bytes(1, "big")
                     clock_val = str(clock).encode()
                     conn.sendall(sender + clock_val)
                 connlock.release()
-                clock+=1
+                clock += 1
                 with open(name, "a") as f:
-                    f.write("SentDoubMsg,"+str(datetime.datetime.now())+","+str(clock)+"\n")
+                    f.write("SentDoubMsg," +
+                            str(datetime.datetime.now())+","+str(clock)+"\n")
             else:
-                #internal event with clock update
-                clock+=1
+                # internal event with clock update
+                clock += 1
                 with open(name, "a") as f:
-                    f.write("IntEvent,"+str(datetime.datetime.now())+","+str(clock)+"\n")
-
+                    f.write("IntEvent,"+str(datetime.datetime.now()) +
+                            ","+str(clock)+"\n")
 
 
 if __name__ == '__main__':
-    this_IP = '10.250.55.253'
+    this_IP = '10.250.189.78'
     thread_list = []
     # usage: python3 machine.py machine_ID listenPORT targetIP targetPORT...
     # start machines in sequence
@@ -150,5 +154,5 @@ if __name__ == '__main__':
 
 # in succession, run:
 # python3 machine.py 1 8080
-# python3 machine.py 2 8081 10.250.55.253 8080
-# python3 machine.py 3 8082 10.250.55.253 8081 10.250.55.253 8080
+# python3 machine.py 2 8081 10.250.189.78 8080
+# python3 machine.py 3 8082 10.250.189.78 8081 10.250.189.78 8080

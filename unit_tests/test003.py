@@ -11,8 +11,8 @@ import subprocess
 from unittest.mock import patch
 
 
-
-IP = "10.250.55.253"
+hostname = socket.gethostname()
+IP = str(socket.gethostbyname(hostname))
 Port = 8080
 
 
@@ -21,7 +21,7 @@ gconn_list = []
 connlock = threading.Lock()
 machine_ID = 2
 
-# Tests if correct logical clock timestamp is applied when a message is sent 
+# Tests if correct logical clock timestamp is applied when a message is sent
 # assuming one machine is already being run elsewhere
 
 
@@ -36,6 +36,7 @@ def msg_connect(conn, IP=None, port=None):
     gconn_list.append(conn)
     connlock.release()
 
+
 def msg_connect_and_send(conn, IP=None, port=None):
     # this is where a machine will listen when it recognizes a connection
     # either gets a conn from machine server for listening or connects to existing server
@@ -48,18 +49,15 @@ def msg_connect_and_send(conn, IP=None, port=None):
     connlock.release()
 
     connlock.acquire(timeout=10)
-    #sends double message
+    # sends double message
     sender = machine_ID.to_bytes(1, "big")
     clock_val = str(100).encode()
     conn.sendall(sender + clock_val)
     connlock.release()
 
 
-
-
-
 class Test(unittest.TestCase):
-    
+
     def test(self):
         msg_connect(None, IP, Port)
         time.sleep(5)

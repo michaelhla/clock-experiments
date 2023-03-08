@@ -11,8 +11,8 @@ import subprocess
 from unittest.mock import patch
 
 
-
-IP = "10.250.55.253"
+hostname = socket.gethostname()
+IP = str(socket.gethostbyname(hostname))
 Port = 8080
 
 
@@ -37,15 +37,15 @@ def msg_connect(conn, IP=None, port=None):
     connlock.release()
 
 
-
 class Test(unittest.TestCase):
-    
+
     def test(self):
         msg_connect(None, IP, Port)
 
         with open("log_1.txt", "r") as f:
             log = f.read()
-            self.assertFalse("IntEvent" in log or "RecMsg" in log or "SentMsg" in log or "SentDoubMsg" in log)
+            self.assertFalse(
+                "IntEvent" in log or "RecMsg" in log or "SentMsg" in log or "SentDoubMsg" in log)
             f.close()
 
 

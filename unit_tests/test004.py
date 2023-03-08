@@ -11,8 +11,8 @@ import subprocess
 from unittest.mock import patch
 
 
-
-IP = "10.250.55.253"
+hostname = socket.gethostname()
+IP = str(socket.gethostbyname(hostname))
 Port1 = 8080
 Port2 = 8081
 
@@ -22,7 +22,8 @@ gconn_list = []
 connlock = threading.Lock()
 machine_ID = 3
 
-#assume now that two external servers are running. We want to check if send to both functionality works, with correct timestamping
+# assume now that two external servers are running. We want to check if send to both functionality works, with correct timestamping
+
 
 def msg_connect(conn, IP=None, ports=None):
     # this is where a machine will listen when it recognizes a connection
@@ -43,8 +44,9 @@ def msg_connect(conn, IP=None, ports=None):
     with open("log_3.txt", "a") as f:
         f.write("SentDoubMsg,"+str(datetime.datetime.now())+","+str(101)+"\n")
 
+
 class Test(unittest.TestCase):
-    
+
     def test(self):
         msg_connect(None, IP, [Port1, Port2])
         time.sleep(5)
@@ -72,14 +74,7 @@ class Test(unittest.TestCase):
                     self.assertTrue(str(101) in log)
             f.close()
 
-        
 
 # Server should be killed after test run
-
 if __name__ == '__main__':
     unittest.main()
-
-    
-
-
-

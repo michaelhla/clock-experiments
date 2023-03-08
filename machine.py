@@ -5,14 +5,14 @@ import threading
 from _thread import *
 import random
 import time
+import datetime
 
 msg_q = []
 qlock = threading.Lock()
 gconn_list = []
 connlock = threading.Lock()
 machine_ID = -1
-
-#Hello
+num_machines = 3
 
 def serverthread(IP, port):
     server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -53,48 +53,54 @@ def msg_listen(conn, IP=None, port=None):
 
 
 def running_machine(rate):
-    clock = [0, 0, 0]
+    # logical clock starts at 0
+    clock = 0
+    # open log file, with ind enumerating the file
+    name = "log_"+str(machine_ID)+".txt"
+    f = open(name, "w")
     while True:
         time.sleep(1/rate)
-
+        msg = None
+        q_len = 0
         # check our message queue
         qlock.acquire(timeout=10)
         if len(msg_q) > 0:
             msg = msg_q.pop()
-        else:
-            msg = None
+            # extract "current" queue length
+            q_len = len(msg_q)
         qlock.release()
-
-        time.sleep(1/rate)
-        # act accordingly to the message
         if msg:
-            sent = msg[0]
-            clock[sent] = int(msg[1:].decode())
+            sender = msg[0]
+            TS = int(msg[1:].decode())
+            #update logical clock TODO
+            clock = max(TS, clock)
+            f.write("RecMsg,"+str(sender)+","+str(datetime.datetime.now())+","+str(q_len)+","+str(clock))
         else:
             op = random.randint(1, 10)
             if op == 1 or op == 2:
-                # NOT SURE if able to send message when separate thread connected
-                # TODO figure out how to send to certain connections
-                # maybe have to open connections in machine thread, then open listen threads with that connection passed in
-
                 connlock.acquire(timeout=10)
                 if len(gconn_list) > 1:
                     conn = gconn_list[op-1]
                     sender = machine_ID.to_bytes(1, "big")
-                    clock_val = str(clock[machine_ID]).encode()
-                    conn.send(sender + clock_val)
+                    clock_val = str(clock).encode()
+                    conn.sendall(sender + clock_val)
                 connlock.release()
+                clock+=1
+                f.write("SentMsg,"+str(datetime.datetime.now())+","+str(clock))
             elif op == 3:
                 connlock.acquire(timeout=10)
                 for conn in gconn_list:
                     sender = machine_ID.to_bytes(1, "big")
-                    clock_val = str(clock[machine_ID]).encode()
-                    conn.send(sender + clock_val)
+                    clock_val = str(clock).encode()
+                    conn.sendall(sender + clock_val)
                 connlock.release()
-
+                clock+=1
+                f.write("SentDoubMsg,"+str(datetime.datetime.now())+","+str(clock))
             else:
-                clock[machine_ID] += 1
-            print(clock)
+                clock+=1
+                f.write("IntEvent,"+str(datetime.datetime.now())+","+str(clock))
+
+    f.close()
 
 
 if __name__ == '__main__':

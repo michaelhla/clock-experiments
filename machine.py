@@ -12,7 +12,6 @@ qlock = threading.Lock()
 gconn_list = []
 connlock = threading.Lock()
 machine_ID = -1
-num_machines = 3
 
 def serverthread(IP, port):
     server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -49,15 +48,24 @@ def msg_listen(conn, IP=None, port=None):
             print(e)
             continue
 
-# TODO, implement clocks, rates, effective sending with conns, log files
 
 
 def running_machine(rate):
     # logical clock starts at 0
-    clock = 0
-    # open log file, with ind enumerating the file
+    clock = 0    
+    # name log file, with ind enumerating the file
     name = "log_"+str(machine_ID)+".txt"
-    f = open(name, "w")
+    with open(name, "w") as f:
+        f.write("LOG_"+str(machine_ID)+"\n")
+    # ensures connections are fully initialized before starting clock cycles
+    full_conn = False
+    while full_conn == False:
+        connlock.acquire(timeout=10)
+        if len(gconn_list) == 2:
+            full_conn = True
+            print(gconn_list)
+        connlock.release()
+
     while True:
         time.sleep(1/rate)
         msg = None
@@ -72,9 +80,12 @@ def running_machine(rate):
         if msg:
             sender = msg[0]
             TS = int(msg[1:].decode())
-            #update logical clock TODO
+            #update logical clock
             clock = max(TS, clock)
-            f.write("RecMsg,"+str(sender)+","+str(datetime.datetime.now())+","+str(q_len)+","+str(clock))
+            clock += 1
+            #automatically opens and closes for file safety; in a mode to append instead of overwrite file
+            with open(name, "a") as f:
+                f.write("RecMsg,"+str(sender)+","+str(datetime.datetime.now())+","+str(q_len)+","+str(clock)+"\n")
         else:
             op = random.randint(1, 10)
             if op == 1 or op == 2:
@@ -86,7 +97,8 @@ def running_machine(rate):
                     conn.sendall(sender + clock_val)
                 connlock.release()
                 clock+=1
-                f.write("SentMsg,"+str(datetime.datetime.now())+","+str(clock))
+                with open(name, "a") as f:
+                    f.write("SentMsg,"+str(datetime.datetime.now())+","+str(clock)+"\n")
             elif op == 3:
                 connlock.acquire(timeout=10)
                 for conn in gconn_list:
@@ -95,16 +107,17 @@ def running_machine(rate):
                     conn.sendall(sender + clock_val)
                 connlock.release()
                 clock+=1
-                f.write("SentDoubMsg,"+str(datetime.datetime.now())+","+str(clock))
+                with open(name, "a") as f:
+                    f.write("SentDoubMsg,"+str(datetime.datetime.now())+","+str(clock)+"\n")
             else:
                 clock+=1
-                f.write("IntEvent,"+str(datetime.datetime.now())+","+str(clock))
+                with open(name, "a") as f:
+                    f.write("IntEvent,"+str(datetime.datetime.now())+","+str(clock)+"\n")
 
-    f.close()
 
 
 if __name__ == '__main__':
-    this_IP = '10.250.189.78'
+    this_IP = '10.250.55.253'
     thread_list = []
     # usage: python3 machine.py machine_ID listenPORT targetIP targetPORT...
     # start machines in sequence
@@ -121,6 +134,7 @@ if __name__ == '__main__':
 
     # start machine thread
     rate = random.randint(1, 6)
+    print(rate)
     threading.Thread(target=running_machine,
                      args=(rate,)).start()  # change rate as arg
 
@@ -128,6 +142,5 @@ if __name__ == '__main__':
     threading.Thread(target=serverthread, args=(
         this_IP, int(sys.argv[2]))).start()
     print("init complete")
-
 
 # python3 machine.py 10 8082 10.250.189.78 8080 10.250.189.78 8081 (last machine start with my IP)

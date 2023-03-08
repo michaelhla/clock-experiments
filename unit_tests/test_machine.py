@@ -7,11 +7,14 @@ import random
 import time
 import datetime
 
+# global msg queue, connection list, and associated locks
 msg_q = []
 qlock = threading.Lock()
 gconn_list = []
 connlock = threading.Lock()
 machine_ID = -1
+
+# thread listening for new connections
 
 
 def serverthread(IP, port):
@@ -37,7 +40,7 @@ def msg_listen(conn, IP=None, port=None):
     connlock.acquire(timeout=10)
     gconn_list.append(conn)
     connlock.release()
-
+    # connect as specified ^ , and then continously listen for messages
     while True:
         try:
             msg = conn.recv(2048)

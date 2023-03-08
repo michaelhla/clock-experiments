@@ -12,6 +12,7 @@ gconn_list = []
 connlock = threading.Lock()
 machine_ID = -1
 
+#Hello
 
 def serverthread(IP, port):
     server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
